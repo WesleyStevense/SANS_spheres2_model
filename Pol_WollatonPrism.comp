@@ -1,0 +1,180 @@
+/**************************************************************************
+*
+* McStas, neutron ray-tracing package
+*         Copyright 1997-2006, All rights reserved
+*         Risoe National Laboratory, Roskilde, Denmark
+*         Institut Laue Langevin, Grenoble, France
+*
+* Component: Pol_Wollastonprism
+*
+* %I
+* Written by: Fankang Li
+* Date: 2015
+* Version: $Revision: 0.1 $
+* Origin: Indiana University LENS
+* Release: McStas 2.0
+*
+* Magnetic wollaston prism with opposite fields in two neighbouring triangles
+*
+* %D
+*
+* Based on the version Pol_triafield.comp by Morten Sales.
+* The field intensities are B and -B respectively for the prism
+*
+*
+*     __________
+*    |     	   /|   \t|
+*    | B     / |                x
+*    |      /  |                ^
+*    |     /   |                |
+*    |    /    |                |-----> z
+*    |   /     |   
+*    |  /      |
+*    | /  -B   |
+*    |/________|
+*
+* The angle of the inclination of the triangular field boundary is given by the arctangent to xwidth/(0.5*zdepth)
+*
+* This component does NOT take gravity into account.
+*
+* Example: Pol_triafield(xwidth=0.1, yheight=0.1, zdepth=0.1, B=1e-3)
+*
+* %P
+* INPUT PARAMETERS:
+*
+* xwidth:     [m], Width of the device. 
+* yheight:    [m], Height of the device . 
+* zdepth:     [m], Zdepth of the device .
+* Current:    [A], Current inside the Prism (30G/A)          
+*
+* OUTPUT PARAMETERS:
+*
+* %E
+*******************************************************************************/
+
+DEFINE COMPONENT Pol_WollatonPrism
+SETTING PARAMETERS (xwidth, yheight, zdepth, Current=0)
+OUTPUT PARAMETERS(gammaL, omegaLguide)
+/* Neutron parameters: (x,y,z,vx,vy,vz,t,sx,sy,sz,p) */ 
+     
+SHARE
+%{
+double IntersectWall(double pos, double vel, double wallpos) {
+    /* Function to calculate where the neutron hit the wall */
+
+    if(vel==0)
+      return -1;
+    
+    if(vel>0)
+      return (wallpos-pos)/vel;
+    else 
+      return (-wallpos-pos)/vel;
+  }
+%}
+
+DECLARE
+%{
+  /* Larmor frequency */
+  double gammaL;
+  double omegaLguide;
+%}
+
+INITIALIZE
+%{
+  double velocity = 0, time = 0;
+  double Intersect,t0=0,t1=0;
+  
+  if ((xwidth<=0) || (yheight<=0) || (zdepth<=0)) {
+    fprintf(stderr, "Pol_filter: %s: Null or negative volume!\n"
+	    "ERROR      (xwidth, yheight, zdepth). Exiting\n",
+	    NAME_CURRENT_COMP);
+    exit(1);
+  }
+  
+  gammaL= -1.832472e8;
+
+
+
+  %}
+
+TRACE
+%{
+  double deltaT, deltaTx, deltaTy, sx_in1, sz_in1, xn,yn,sx_in2, sz_in2, iz1, iz2, denom1, denom2, deltaTtria1, deltaTtria2,v,psi,phi,phase,FI;
+  
+//  printf("coordinates: %f %f %f \n",x,y,z);
+	PROP_Z0;
+//	printf("WPi-1 position: %f  %f  %f %f %f %f %f \n",t*vz,x,y,z,vx,vy,vz);
+//	Intersect = box_intersect(&t0, &t1, x, y, z, vx, vy, vz, xwidth, yheight, zdepth);
+
+//	printf("WPi position: %f  %f  %f %f %f %f %f \n",t*vz,x,y,z,vx,vy,vz);
+  if (!inside_rectangle(x, y, xwidth, yheight))
+    ABSORB;
+  
+  // Time spent in the Wollaston prism
+  deltaT = zdepth/vz;
+    
+  // This calculates the intersections on the xz-plane between the neutron trajectory and the triangular field boundaries
+  // The neutron trajectory is given by the points    (        x, 0,       0) and (     x+vx, 0,       vz)
+  // The first field boundary is given by the points  (-xwidth/2, 0,       0) and ( xwidth/2, 0, zdepth)
+  // iz1 is are the z-values for the intersection
+ //   denom1 = (-vz)*((-xwidth/2)-xwidth/2)-(x-(x+vx))*(-zdepth);
+ //   iz1    = ((-x*vz)*(-zdepth)-(-vz)*(-(-xwidth/2)*zdepth))/denom1;
+    
+
+  // Time spent in the first part of the Wollaston prism
+ //   deltaTtria1	= iz1/vz;
+ //   deltaTtria2	= (zdepth-iz1)/vz;
+
+
+  // check that track goes throgh without hitting the walls
+  if (!inside_rectangle(x+vx*deltaT, y+vy*deltaT, xwidth, yheight)) {
+    
+    // Propagate to the wall and absorb
+//    deltaTx = IntersectWall(x, vx, xwidth/2);
+//    deltaTy = IntersectWall(y, vy, yheight/2);
+
+//    if (deltaTx>=0 && deltaTx<deltaTy)
+//      deltaT = deltaTx;
+//    else
+//      deltaT = deltaTy;
+    
+//    PROP_DT(deltaT);  
+    
+    ABSORB;
+  }  
+//  printf("coordinates: %f %f %f \n",x,y,z);
+  PROP_DT(deltaT/2);  
+
+  v=sqrt(pow(vx,2)+pow(vy,2)+pow(vz,2));
+  phi=vx/vz;
+  psi=vy/vz;
+  
+//	printf("WPi-2 position: %f  %f  %f %f %f %f %f \n",t*vz,x,y,z,vx,vy,vz);
+//  xn=x+phi*zdepth/2;
+//  yn=y+psi*zdepth/2;
+
+//  FI=Current*6/7.2393*(-10*7.2393*xn+10*7.329*xn*phi-10*0.04248*yn*psi+pow(10,7)*0.00005559*xn*pow(yn,2));//Unit:G.m
+  FI=Current*6/7.2393*(-10*7.2393*x+10*7.329*x*phi-10*0.04248*y*psi+pow(10,7)*0.00005559*x*pow(y,2));//Unit:G.m
+  phase=1e-4*gammaL*FI/v;
+
+  // These are the incoming spin directions 
+  sx_in1 = sx;
+  sz_in1 = sz;
+  
+   // This calculated the spin rotation caused by the second half of the Wollaston prism
+  sz = cos(phase)*sz_in1 - sin(phase)*sx_in1;
+  sx = sin(phase)*sz_in1 + cos(phase)*sx_in1;
+ 
+  PROP_DT(deltaT/2);  
+//	printf("WPf position: %f  %f  %f %f %f %f %f \n",t*vz,x,y,z,vx,vy,vz);
+//  printf("coordinates: %f %f %f \n",x,y,z);
+  %}
+
+MCDISPLAY
+%{
+  magnify("xy");
+  
+  box(0, 0, zdepth/2, xwidth, yheight, zdepth);
+  %}
+
+END
